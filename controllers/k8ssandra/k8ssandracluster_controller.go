@@ -87,7 +87,7 @@ func (r *K8ssandraClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	kc = kc.DeepCopy()
 	patch := client.MergeFromWithOptions(kc.DeepCopy())
-	result, err := r.reconcile(ctx, kc, logger)
+	recResult, err := r.reconcile(ctx, kc, logger)
 	if kc.GetDeletionTimestamp() == nil {
 		if patchErr := r.Status().Patch(ctx, kc, patch); patchErr != nil {
 			logger.Error(patchErr, "failed to update k8ssandracluster status")
@@ -95,7 +95,7 @@ func (r *K8ssandraClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			logger.Info("updated k8ssandracluster status")
 		}
 	}
-	return result, err
+	return recResult, err
 }
 
 func (r *K8ssandraClusterReconciler) reconcile(ctx context.Context, kc *api.K8ssandraCluster, kcLogger logr.Logger) (ctrl.Result, error) {
@@ -135,11 +135,7 @@ func (r *K8ssandraClusterReconciler) reconcile(ctx context.Context, kc *api.K8ss
 
 	kcLogger.Info("All dcs reconciled")
 
-	if recResult := r.reconcileStargateAuthSchema(ctx, kc, actualDcs, kcLogger); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := r.recocileReaperSchema(ctx, kc, actualDcs, kcLogger); recResult.Completed() {
+	if recResult := r.reconcileSchemas(ctx, kc, kcLogger, actualDcs); recResult.Completed() {
 		return recResult.Output()
 	}
 
@@ -152,22 +148,37 @@ func (r *K8ssandraClusterReconciler) reconcile(ctx context.Context, kc *api.K8ss
 	return result.Done().Output()
 }
 
-func (r *K8ssandraClusterReconciler) reconcileStargateAndReaper(ctx context.Context, kc *api.K8ssandraCluster, dcs []*cassdcapi.CassandraDatacenter, logger logr.Logger) result.ReconcileResult {
+func (r *K8ssandraClusterReconciler) reconcileSchemas(ctx context.Context, kc *api.K8ssandraCluster, kcLogger logr.Logger, actualDcs []*cassdcapi.CassandraDatacenter) result.ReconcileResult {
+	group, ctx := result.NewGroupWithContext(ctx)
+	group.Go(func() result.ReconcileResult {
+		return r.reconcileStargateAuthSchema(ctx, kc, actualDcs, kcLogger)
+	})
+	group.Go(func() result.ReconcileResult {
+		return r.reconcileReaperSchema(ctx, kc, actualDcs, kcLogger)
+	})
+	return group.Wait()
+}
+
+func (r *K8ssandraClusterReconciler) reconcileStargateAndReaper(ctx context.Context, kc *api.K8ssandraCluster, dcs []*cassdcapi.CassandraDatacenter, kcLogger logr.Logger) result.ReconcileResult {
+	res := result.Continue()
 	for i, dcTemplate := range kc.Spec.Cassandra.Datacenters {
 		dc := dcs[i]
 		dcKey := utils.GetKey(dc)
-		logger := logger.WithValues("CassandraDatacenter", dcKey)
+		logger := kcLogger.WithValues("CassandraDatacenter", dcKey)
 		logger.Info("Reconciling Stargate and Reaper for dc " + dc.Name)
 		if remoteClient, err := r.ClientCache.GetRemoteClient(dcTemplate.K8sContext); err != nil {
 			logger.Error(err, "Failed to get remote client")
-			return result.Error(err)
-		} else if recResult := r.reconcileStargate(ctx, kc, dcTemplate, dc, logger, remoteClient); recResult.Completed() {
-			return recResult
-		} else if recResult := r.reconcileReaper(ctx, kc, dcTemplate, dc, logger, remoteClient); recResult.Completed() {
-			return recResult
+			return result.CompleteWithError(err)
+		} else {
+			stargateResult := r.reconcileStargate(ctx, kc, dcTemplate, dc, logger, remoteClient)
+			reaperResult := r.reconcileReaper(ctx, kc, dcTemplate, dc, logger, remoteClient)
+			res = result.Merge(res, stargateResult, reaperResult)
+			if res.Completed() {
+				return res
+			}
 		}
 	}
-	return result.Continue()
+	return res
 }
 
 func (r *K8ssandraClusterReconciler) reconcileStargate(
@@ -199,18 +210,18 @@ func (r *K8ssandraClusterReconciler) reconcileStargate(
 				logger.Info("Creating Stargate resource")
 				if err := remoteClient.Create(ctx, desiredStargate); err != nil {
 					logger.Error(err, "Failed to create Stargate resource")
-					return result.Error(err)
+					return result.ContinueWithError(err)
 				} else {
-					return result.RequeueSoon(int(r.DefaultDelay))
+					return result.ContinueAndRequeue(r.DefaultDelay)
 				}
 			} else {
 				logger.Error(err, "Failed to get Stargate resource")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			}
 		} else {
 			if err = r.setStatusForStargate(kc, actualStargate, dcTemplate.Meta.Name); err != nil {
 				logger.Error(err, "Failed to update status for stargate")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			}
 			if !utils.CompareAnnotations(desiredStargate, actualStargate, api.ResourceHashAnnotation) {
 				logger.Info("Updating Stargate")
@@ -218,15 +229,15 @@ func (r *K8ssandraClusterReconciler) reconcileStargate(
 				desiredStargate.DeepCopyInto(actualStargate)
 				actualStargate.SetResourceVersion(resourceVersion)
 				if err = remoteClient.Update(ctx, actualStargate); err == nil {
-					return result.RequeueSoon(int(r.DefaultDelay))
+					return result.ContinueAndRequeue(r.DefaultDelay)
 				} else {
 					logger.Error(err, "Failed to update Stargate")
-					return result.Error(err)
+					return result.ContinueWithError(err)
 				}
 			}
 			if !actualStargate.Status.IsReady() {
 				logger.Info("Waiting for Stargate to become ready")
-				return result.RequeueSoon(int(r.DefaultDelay))
+				return result.ContinueAndRequeue(r.DefaultDelay)
 			}
 			logger.Info("Stargate is ready")
 		}
@@ -239,12 +250,12 @@ func (r *K8ssandraClusterReconciler) reconcileStargate(
 				// OK
 			} else {
 				logger.Error(err, "Failed to get Stargate")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			}
 		} else if utils.IsCreatedByK8ssandraController(actualStargate, kcKey) {
 			if err := remoteClient.Delete(ctx, actualStargate); err != nil {
 				logger.Error(err, "Failed to delete Stargate")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			} else {
 				r.removeStargateStatus(kc, dcTemplate.Meta.Name)
 				logger.Info("Stargate deleted")
@@ -396,14 +407,14 @@ func (r *K8ssandraClusterReconciler) checkDeletion(ctx context.Context, kc *api.
 	}
 
 	if hasErrors {
-		return result.RequeueSoon(int(r.DefaultDelay.Seconds()))
+		return result.CompleteAndRequeue(r.DefaultDelay)
 	}
 
 	patch := client.MergeFrom(kc.DeepCopy())
 	controllerutil.RemoveFinalizer(kc, k8ssandraClusterFinalizer)
 	if err := r.Client.Patch(ctx, kc, patch); err != nil {
 		logger.Error(err, "Failed to remove finalizer")
-		return result.Error(err)
+		return result.CompleteWithError(err)
 	}
 
 	return result.Done()
@@ -418,7 +429,7 @@ func (r *K8ssandraClusterReconciler) checkFinalizer(ctx context.Context, kc *api
 	controllerutil.AddFinalizer(kc, k8ssandraClusterFinalizer)
 	if err := r.Client.Patch(ctx, kc, patch); err != nil {
 		logger.Error(err, "Failed to add finalizer")
-		return result.Error(err)
+		return result.CompleteWithError(err)
 	}
 
 	return result.Continue()
@@ -435,7 +446,7 @@ func (r *K8ssandraClusterReconciler) reconcileSuperuserSecret(ctx context.Contex
 
 	if err := secret.ReconcileSecret(ctx, r.Client, kc.Spec.Cassandra.SuperuserSecretName, utils.GetKey(kc)); err != nil {
 		logger.Error(err, "Failed to verify existence of superuserSecret")
-		return result.Error(err)
+		return result.CompleteWithError(err)
 	}
 
 	return result.Continue()
@@ -444,7 +455,7 @@ func (r *K8ssandraClusterReconciler) reconcileSuperuserSecret(ctx context.Contex
 func (r *K8ssandraClusterReconciler) reconcileReplicatedSecret(ctx context.Context, kc *api.K8ssandraCluster, logger logr.Logger) result.ReconcileResult {
 	if err := secret.ReconcileReplicatedSecret(ctx, r.Client, r.Scheme, kc, logger); err != nil {
 		logger.Error(err, "Failed to reconcile ReplicatedSecret")
-		return result.Error(err)
+		return result.CompleteWithError(err)
 	}
 	return result.Continue()
 }
@@ -458,7 +469,7 @@ func (r *K8ssandraClusterReconciler) reconcileDatacenters(ctx context.Context, k
 	seeds, err := r.findSeeds(ctx, kc, logger)
 	if err != nil {
 		logger.Error(err, "Failed to find seed nodes")
-		return result.Error(err), actualDcs
+		return result.CompleteWithError(err), actualDcs
 	}
 
 	// Reconcile CassandraDatacenter objects only
@@ -467,7 +478,7 @@ func (r *K8ssandraClusterReconciler) reconcileDatacenters(ctx context.Context, k
 		if !secret.HasReplicatedSecrets(ctx, r.Client, kcKey, dcTemplate.K8sContext) {
 			// ReplicatedSecret has not replicated yet, wait until it has
 			logger.Info("Waiting for replication to complete")
-			return result.RequeueSoon(int(r.DefaultDelay.Seconds())), actualDcs
+			return result.CompleteAndRequeue(r.DefaultDelay), actualDcs
 		}
 
 		// Note that it is necessary to use a copy of the CassandraClusterTemplate because
@@ -489,7 +500,7 @@ func (r *K8ssandraClusterReconciler) reconcileDatacenters(ctx context.Context, k
 
 		if err != nil {
 			logger.Error(err, "Failed to create new CassandraDatacenter")
-			return result.Error(err), actualDcs
+			return result.CompleteWithError(err), actualDcs
 		}
 
 		utils.AddHashAnnotation(desiredDc, api.ResourceHashAnnotation)
@@ -499,7 +510,7 @@ func (r *K8ssandraClusterReconciler) reconcileDatacenters(ctx context.Context, k
 		remoteClient, err := r.ClientCache.GetRemoteClient(dcTemplate.K8sContext)
 		if err != nil {
 			logger.Error(err, "Failed to get remote client")
-			return result.Error(err), actualDcs
+			return result.CompleteWithError(err), actualDcs
 		}
 
 		if recResult := r.reconcileSeedsEndpoints(ctx, desiredDc, seeds, remoteClient, logger); recResult.Completed() {
@@ -510,7 +521,7 @@ func (r *K8ssandraClusterReconciler) reconcileDatacenters(ctx context.Context, k
 			// cassdc already exists, we'll update it
 			if err = r.setStatusForDatacenter(kc, actualDc); err != nil {
 				logger.Error(err, "Failed to update status for datacenter")
-				return result.Error(err), actualDcs
+				return result.CompleteWithError(err), actualDcs
 			}
 
 			if !utils.CompareAnnotations(actualDc, desiredDc, api.ResourceHashAnnotation) {
@@ -529,13 +540,13 @@ func (r *K8ssandraClusterReconciler) reconcileDatacenters(ctx context.Context, k
 				actualDc.SetResourceVersion(resourceVersion)
 				if err = remoteClient.Update(ctx, actualDc); err != nil {
 					logger.Error(err, "Failed to update datacenter")
-					return result.Error(err), actualDcs
+					return result.CompleteWithError(err), actualDcs
 				}
 			}
 
 			if !cassandra.DatacenterReady(actualDc) {
 				logger.Info("Waiting for datacenter to become ready")
-				return result.RequeueSoon(int(r.DefaultDelay)), actualDcs
+				return result.CompleteAndRequeue(r.DefaultDelay), actualDcs
 			}
 
 			logger.Info("The datacenter is ready")
@@ -546,12 +557,12 @@ func (r *K8ssandraClusterReconciler) reconcileDatacenters(ctx context.Context, k
 				// cassdc doesn't exist, we'll create it
 				if err = remoteClient.Create(ctx, desiredDc); err != nil {
 					logger.Error(err, "Failed to create datacenter")
-					return result.Error(err), actualDcs
+					return result.CompleteWithError(err), actualDcs
 				}
-				return result.RequeueSoon(int(r.DefaultDelay)), actualDcs
+				return result.CompleteAndRequeue(r.DefaultDelay), actualDcs
 			} else {
 				logger.Error(err, "Failed to get datacenter")
-				return result.Error(err), actualDcs
+				return result.CompleteWithError(err), actualDcs
 			}
 		}
 	}
@@ -569,24 +580,24 @@ func (r *K8ssandraClusterReconciler) reconcileStargateAuthSchema(ctx context.Con
 
 	if remoteClient, err := r.ClientCache.GetRemoteClient(dcTemplate.K8sContext); err != nil {
 		logger.Error(err, "Failed to get remote client")
-		return result.Error(err)
+		return result.CompleteWithError(err)
 	} else {
 		dc := dcs[0]
 		managementApi, err := r.ManagementApi.NewManagementApiFacade(ctx, dc, remoteClient, logger)
 		if err != nil {
 			logger.Error(err, "Failed to create ManagementApiFacade")
-			return result.Error(err)
+			return result.CompleteWithError(err)
 		}
 
 		replication := cassandra.ComputeReplication(3, kc.Spec.Cassandra.Datacenters...)
 		if err = managementApi.EnsureKeyspaceReplication(stargate.AuthKeyspace, replication); err != nil {
 			logger.Error(err, "Failed to ensure keyspace replication")
-			return result.Error(err)
+			return result.CompleteWithError(err)
 		}
 
 		if err = stargate.ReconcileAuthTable(managementApi, logger); err != nil {
 			logger.Error(err, "Failed to reconcile Stargate auth table")
-			return result.Error(err)
+			return result.CompleteWithError(err)
 		}
 
 		return result.Continue()

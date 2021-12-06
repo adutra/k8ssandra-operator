@@ -69,7 +69,7 @@ func (r *K8ssandraClusterReconciler) reconcileSeedsEndpoints(ctx context.Context
 			logger.Info("Deleting endpoints")
 			if err := remoteClient.Delete(ctx, actualEndpoints); err != nil {
 				logger.Error(err, "Failed to delete endpoints")
-				return result.Error(err)
+				return result.CompleteWithError(err)
 			}
 		} else {
 			if !utils.CompareAnnotations(actualEndpoints, desiredEndpoints, api.ResourceHashAnnotation) {
@@ -80,7 +80,7 @@ func (r *K8ssandraClusterReconciler) reconcileSeedsEndpoints(ctx context.Context
 				actualEndpoints.SetResourceVersion(resourceVersion)
 				if err = remoteClient.Update(ctx, actualEndpoints); err != nil {
 					logger.Error(err, "Failed to update endpoints", "Endpoints", endpointsKey)
-					return result.Error(err)
+					return result.CompleteWithError(err)
 				}
 			}
 		}
@@ -97,12 +97,12 @@ func (r *K8ssandraClusterReconciler) reconcileSeedsEndpoints(ctx context.Context
 				logger.Info("Creating endpoints", "Endpoints", endpointsKey)
 				if err = remoteClient.Create(ctx, desiredEndpoints); err != nil {
 					logger.Error(err, "Failed to create endpoints", "Endpoints", endpointsKey)
-					return result.Error(err)
+					return result.CompleteWithError(err)
 				}
 			}
 		} else {
 			logger.Error(err, "Failed to get endpoints", "Endpoints", endpointsKey)
-			return result.Error(err)
+			return result.CompleteWithError(err)
 		}
 	}
 	return result.Continue()

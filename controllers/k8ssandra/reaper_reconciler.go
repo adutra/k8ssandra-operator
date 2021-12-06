@@ -54,18 +54,18 @@ func (r *K8ssandraClusterReconciler) reconcileReaperSecrets(ctx context.Context,
 		)
 		if err := secret.ReconcileSecret(ctx, r.Client, cassandraUserSecretRef, kcKey); err != nil {
 			logger.Error(err, "Failed to reconcile Reaper CQL user secret")
-			return result.Error(err)
+			return result.ContinueWithError(err)
 		}
 		if err := secret.ReconcileSecret(ctx, r.Client, jmxUserSecretRef, kcKey); err != nil {
 			logger.Error(err, "Failed to reconcile Reaper JMX user secret")
-			return result.Error(err)
+			return result.ContinueWithError(err)
 		}
 	}
 	logger.Info("Reaper user secrets successfully reconciled")
 	return result.Continue()
 }
 
-func (r *K8ssandraClusterReconciler) recocileReaperSchema(ctx context.Context, kc *api.K8ssandraCluster, dcs []*cassdcapi.CassandraDatacenter, logger logr.Logger) result.ReconcileResult {
+func (r *K8ssandraClusterReconciler) reconcileReaperSchema(ctx context.Context, kc *api.K8ssandraCluster, dcs []*cassdcapi.CassandraDatacenter, logger logr.Logger) result.ReconcileResult {
 	if !kc.HasReapers() {
 		return result.Continue()
 	}
@@ -75,13 +75,13 @@ func (r *K8ssandraClusterReconciler) recocileReaperSchema(ctx context.Context, k
 
 	if remoteClient, err := r.ClientCache.GetRemoteClient(dcTemplate.K8sContext); err != nil {
 		logger.Error(err, "Failed to get remote client")
-		return result.Error(err)
+		return result.ContinueWithError(err)
 	} else {
 		dc := dcs[0]
 		managementApiFacade, err := r.ManagementApi.NewManagementApiFacade(ctx, dc, remoteClient, logger)
 		if err != nil {
 			logger.Error(err, "Failed to create ManagementApiFacade")
-			return result.Error(err)
+			return result.ContinueWithError(err)
 		}
 		keyspace := reaperapi.DefaultKeyspace
 
@@ -95,7 +95,7 @@ func (r *K8ssandraClusterReconciler) recocileReaperSchema(ctx context.Context, k
 		)
 		if err != nil {
 			logger.Error(err, "Failed to ensure keyspace replication")
-			return result.Error(err)
+			return result.ContinueWithError(err)
 		}
 
 		return result.Continue()
@@ -131,13 +131,13 @@ func (r *K8ssandraClusterReconciler) reconcileReaper(
 				logger.Info("Creating Reaper resource")
 				if err := remoteClient.Create(ctx, desiredReaper); err != nil {
 					logger.Error(err, "Failed to create Reaper resource")
-					return result.Error(err)
+					return result.ContinueWithError(err)
 				} else {
-					return result.RequeueSoon(int(r.DefaultDelay))
+					return result.ContinueAndRequeue(r.DefaultDelay)
 				}
 			} else {
 				logger.Error(err, "failed to retrieve reaper instance")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			}
 		}
 
@@ -145,7 +145,7 @@ func (r *K8ssandraClusterReconciler) reconcileReaper(
 
 		if err := r.setStatusForReaper(kc, actualReaper, dcTemplate.Meta.Name); err != nil {
 			logger.Error(err, "Failed to update status for reaper")
-			return result.Error(err)
+			return result.ContinueWithError(err)
 		}
 
 		if !utils.CompareAnnotations(actualReaper, desiredReaper, api.ResourceHashAnnotation) {
@@ -155,14 +155,14 @@ func (r *K8ssandraClusterReconciler) reconcileReaper(
 			actualReaper.SetResourceVersion(resourceVersion)
 			if err := remoteClient.Update(ctx, actualReaper); err != nil {
 				logger.Error(err, "Failed to update Reaper resource")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			}
-			return result.RequeueSoon(int(r.DefaultDelay))
+			return result.ContinueAndRequeue(r.DefaultDelay)
 		}
 
 		if !actualReaper.Status.IsReady() {
 			logger.Info("Waiting for Reaper to become ready")
-			return result.RequeueSoon(int(r.DefaultDelay))
+			return result.ContinueAndRequeue(r.DefaultDelay)
 		}
 
 		logger.Info("Reaper is ready")
@@ -178,12 +178,12 @@ func (r *K8ssandraClusterReconciler) reconcileReaper(
 				r.removeReaperStatus(kc, dcTemplate.Meta.Name)
 			} else {
 				logger.Error(err, "Failed to get Reaper resource")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			}
 		} else if utils.IsCreatedByK8ssandraController(actualReaper, kcKey) {
 			if err = remoteClient.Delete(ctx, actualReaper); err != nil {
 				logger.Error(err, "Failed to delete Reaper resource")
-				return result.Error(err)
+				return result.ContinueWithError(err)
 			} else {
 				r.removeReaperStatus(kc, dcTemplate.Meta.Name)
 				logger.Info("Reaper deleted")

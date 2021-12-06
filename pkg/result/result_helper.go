@@ -1,6 +1,8 @@
 package result
 
 import (
+	"github.com/hashicorp/go-multierror"
+	"math"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"time"
 )
@@ -8,64 +10,70 @@ import (
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-type ReconcileResult interface {
-	Completed() bool
-	Output() (ctrl.Result, error)
+type ReconcileResult struct {
+	completed bool
+	err       error
+	delay     time.Duration
 }
 
-type continueReconcile struct{}
-
-func (c continueReconcile) Completed() bool {
-	return false
-}
-func (c continueReconcile) Output() (ctrl.Result, error) {
-	panic("there was no Result to return")
+func (r ReconcileResult) Completed() bool {
+	return r.completed
 }
 
-type done struct{}
-
-func (d done) Completed() bool {
-	return true
-}
-func (d done) Output() (ctrl.Result, error) {
-	return ctrl.Result{}, nil
-}
-
-type callBackSoon struct {
-	secs int
-}
-
-func (c callBackSoon) Completed() bool {
-	return true
-}
-func (c callBackSoon) Output() (ctrl.Result, error) {
-	t := time.Duration(c.secs) * time.Second
-	return ctrl.Result{Requeue: true, RequeueAfter: t}, nil
-}
-
-type errorOut struct {
-	err error
-}
-
-func (e errorOut) Completed() bool {
-	return true
-}
-func (e errorOut) Output() (ctrl.Result, error) {
-	return ctrl.Result{}, e.err
+func (r ReconcileResult) Output() (ctrl.Result, error) {
+	return ctrl.Result{RequeueAfter: r.delay}, r.err
 }
 
 func Continue() ReconcileResult {
-	return continueReconcile{}
+	return ReconcileResult{}
 }
 
 func Done() ReconcileResult {
-	return done{}
+	return ReconcileResult{completed: true}
 }
 
-func RequeueSoon(secs int) ReconcileResult {
-	return callBackSoon{secs: secs}
+func CompleteAndRequeue(delay time.Duration) ReconcileResult {
+	return ReconcileResult{delay: delay, completed: true}
 }
 
-func Error(e error) ReconcileResult {
-	return errorOut{err: e}
+func ContinueAndRequeue(delay time.Duration) ReconcileResult {
+	return ReconcileResult{delay: delay, completed: false}
+}
+
+func CompleteWithError(e error) ReconcileResult {
+	return ReconcileResult{err: e, completed: true}
+}
+
+func ContinueWithError(e error) ReconcileResult {
+	return ReconcileResult{err: e, completed: false}
+}
+
+func Merge(results ...ReconcileResult) ReconcileResult {
+	var completed bool
+	var delay time.Duration
+	var err error
+	for _, result := range results {
+		// the merged result is completed if any of the results is completed
+		completed = completed || result.completed
+		// the requeue delay is the smallest one, excluding zero delays
+		if result.delay > 0 {
+			if delay == 0 {
+				delay = result.delay
+			} else {
+				delay = time.Duration(math.Min(float64(delay), float64(result.delay)))
+			}
+		}
+		if result.err != nil {
+			if err == nil {
+				err = result.err
+			} else {
+				err = multierror.Append(err, result.err)
+			}
+		}
+	}
+	if err != nil {
+		// if the result is an error, no need to retain the delay, it's going to be requeued immediately when complete.
+		delay = 0
+	}
+	return ReconcileResult{completed: completed, delay: delay, err: err}
 }
