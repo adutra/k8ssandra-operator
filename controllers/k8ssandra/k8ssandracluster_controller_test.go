@@ -992,6 +992,9 @@ func createMultiDcClusterWithStargate(t *testing.T, ctx context.Context, f *fram
 	t.Log("check that stargate sg1 is created")
 	require.Eventually(f.StargateExists(ctx, sg1Key), timeout, interval)
 
+	t.Log("check that stargate sg2 is created")
+	require.Eventually(f.StargateExists(ctx, sg2Key), timeout, interval)
+
 	t.Logf("update stargate sg1 status to ready")
 	err = f.PatchStargateStatus(ctx, sg1Key, func(sg *stargateapi.Stargate) {
 		now := metav1.Now()
@@ -1007,19 +1010,6 @@ func createMultiDcClusterWithStargate(t *testing.T, ctx context.Context, f *fram
 		})
 	})
 	require.NoError(err, "failed to patch stargate status")
-
-	k := &api.K8ssandraCluster{}
-	err = f.Get(ctx, kcKey, k)
-	require.NoError(err)
-	require.NotNil(k.Spec.Cassandra.Datacenters[1].Stargate)
-
-	t.Logf("check that stargate %s has not been created", sg2Key)
-	sg2 := &stargateapi.Stargate{}
-	err = f.Get(ctx, sg2Key, sg2)
-	require.True(err != nil && errors.IsNotFound(err), fmt.Sprintf("stargate %s should not be created until dc2 is ready", sg2Key))
-
-	t.Log("check that stargate sg2 is created")
-	require.Eventually(f.StargateExists(ctx, sg2Key), timeout, interval)
 
 	t.Logf("update stargate sg2 status to ready")
 	err = f.PatchStargateStatus(ctx, sg2Key, func(sg *stargateapi.Stargate) {
