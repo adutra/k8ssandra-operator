@@ -75,13 +75,13 @@ func (r *K8ssandraClusterReconciler) reconcileReaperSchema(ctx context.Context, 
 
 	if remoteClient, err := r.ClientCache.GetRemoteClient(dcTemplate.K8sContext); err != nil {
 		logger.Error(err, "Failed to get remote client")
-		return result.ContinueWithError(err)
+		return result.CompleteWithError(err)
 	} else {
 		dc := dcs[0]
 		managementApiFacade, err := r.ManagementApi.NewManagementApiFacade(ctx, dc, remoteClient, logger)
 		if err != nil {
 			logger.Error(err, "Failed to create ManagementApiFacade")
-			return result.ContinueWithError(err)
+			return result.CompleteWithError(err)
 		}
 		keyspace := reaperapi.DefaultKeyspace
 
@@ -95,7 +95,7 @@ func (r *K8ssandraClusterReconciler) reconcileReaperSchema(ctx context.Context, 
 		)
 		if err != nil {
 			logger.Error(err, "Failed to ensure keyspace replication")
-			return result.ContinueWithError(err)
+			return result.CompleteWithError(err)
 		}
 
 		return result.Continue()
