@@ -49,7 +49,7 @@ func (r *K8ssandraClusterReconciler) reconcileReaperSecrets(ctx context.Context,
 			}
 			reaperUiSecretRef := kc.Spec.Reaper.ReaperUiSecretRef
 			if reaperUiSecretRef.Name == "" {
-				reaperUiSecretRef.Name = reaper.DefaultUiSecretName(kc.Spec.Cassandra.Cluster)
+				reaperUiSecretRef.Name = reaper.DefaultUiSecretName(kc.Name)
 			}
 			kcKey := utils.GetKey(kc)
 			if err := secret.ReconcileSecret(ctx, r.Client, cassandraUserSecretRef.Name, kcKey); err != nil {
