@@ -3,11 +3,13 @@ package framework
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -35,8 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	defaultControlPlaneContext = "kind-k8ssandra-0"
+var (
+	configFile          = flag.String("configFile", "../../build/kubeconfig", "The path to the kubeconfig file to use")
+	controlPlaneContext = flag.String("controlPlane", "kind-k8ssandra-0", "The name of a Kubernetes context to use as the control plane context")
 )
 
 type E2eFramework struct {
@@ -47,7 +50,7 @@ type E2eFramework struct {
 }
 
 func NewE2eFramework(t *testing.T) (*E2eFramework, error) {
-	configFile, err := filepath.Abs("../../build/kubeconfig")
+	configFile, err := filepath.Abs(*configFile)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +64,6 @@ func NewE2eFramework(t *testing.T) (*E2eFramework, error) {
 		return nil, err
 	}
 
-	controlPlaneContext := ""
 	var controlPlaneClient client.Client
 	remoteClients := make(map[string]client.Client, 0)
 	t.Logf("Using config file: %s", configFile)
@@ -74,34 +76,25 @@ func NewE2eFramework(t *testing.T) (*E2eFramework, error) {
 			return nil, err
 		}
 
-		remoteClient, err := client.New(restCfg, client.Options{Scheme: scheme.Scheme})
-		if err == nil {
+		if remoteClient, err := client.New(restCfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+			t.Logf("Ignoring context %v: %v", name, err)
+		} else {
 			remoteClients[name] = remoteClient
 		}
-
-		// TODO Add a flag or option to allow the user to specify the control plane cluster
-		// if len(ControlPlaneContext) == 0 {
-		//	ControlPlaneContext = name
-		//	controlPlaneClient = remoteClient
-		// }
 	}
 	if len(remoteClients) == 0 {
 		return nil, fmt.Errorf("no valid context found in kubeconfig file")
 	}
-	t.Logf("Using config remote clients: %v", remoteClients)
+	t.Logf("Using remote clients for contexts: %v", reflect.ValueOf(remoteClients).MapKeys())
 
-	if remoteClient, found := remoteClients[defaultControlPlaneContext]; found {
-		controlPlaneContext = defaultControlPlaneContext
-		controlPlaneClient = remoteClient
+	if remoteClient, found := remoteClients[*controlPlaneContext]; !found {
+		return nil, fmt.Errorf("context %s does not exist", *controlPlaneContext)
 	} else {
-		for k8sContext, remoteClient := range remoteClients {
-			controlPlaneContext = k8sContext
-			controlPlaneClient = remoteClient
-			break
-		}
+		controlPlaneClient = remoteClient
+		t.Logf("Using control plane: %v", *controlPlaneContext)
 	}
 
-	f := NewFramework(controlPlaneClient, controlPlaneContext, remoteClients)
+	f := NewFramework(controlPlaneClient, *controlPlaneContext, remoteClients)
 
 	return &E2eFramework{
 		Framework:        f,
@@ -318,7 +311,7 @@ func (f *E2eFramework) kustomizeAndApply(dir, namespace string, contexts ...stri
 			return err
 		}
 
-		options := kubectl.Options{Context: defaultControlPlaneContext, ServerSide: true}
+		options := kubectl.Options{Context: *controlPlaneContext, ServerSide: true}
 		return kubectl.Apply(options, buf)
 	}
 
