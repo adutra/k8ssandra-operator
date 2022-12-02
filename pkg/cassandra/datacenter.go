@@ -310,6 +310,10 @@ func Coalesce(clusterName string, clusterTemplate *api.CassandraClusterTemplate,
 	dcConfig.ManagementApiAuth = mergedOptions.ManagementApiAuth
 	dcConfig.PodTemplateSpec.Spec.SecurityContext = mergedOptions.PodSecurityContext
 
+	if clusterTemplate.CommonPodTags != nil || dcTemplate.PodTags != nil {
+		AddPodTemplateSpecMeta(dcConfig, clusterTemplate, dcTemplate)
+	}
+
 	if len(mergedOptions.Containers) > 0 {
 		_ = AddContainersToPodTemplateSpec(dcConfig, mergedOptions.Containers...)
 	}
@@ -395,6 +399,28 @@ func AddVolumesToPodTemplateSpec(dcConfig *DatacenterConfig, volume corev1.Volum
 		}
 	} else {
 		dcConfig.PodTemplateSpec.Spec.Volumes = append(dcConfig.PodTemplateSpec.Spec.Volumes, volume)
+	}
+}
+
+func AddPodTemplateSpecMeta(dcConfig *DatacenterConfig, clusterTemplate *api.CassandraClusterTemplate, dcTemplate *api.CassandraDatacenterTemplate) {
+	var commonLabels, podLabels map[string]string
+	var commonAnnotations, podAnnotations map[string]string
+
+	if clusterTemplate.CommonPodTags != nil {
+		commonLabels = clusterTemplate.CommonPodTags.Labels
+		commonAnnotations = clusterTemplate.CommonPodTags.Annotations
+	}
+
+	if dcTemplate.PodTags != nil {
+		podLabels = dcTemplate.PodTags.Labels
+		podAnnotations = dcTemplate.PodTags.Annotations
+	}
+
+	labels := utils.MergeMap(commonLabels, podLabels)
+	annotations := utils.MergeMap(commonAnnotations, podAnnotations)
+	dcConfig.PodTemplateSpec.ObjectMeta = metav1.ObjectMeta{
+		Annotations: annotations,
+		Labels:      labels,
 	}
 }
 
