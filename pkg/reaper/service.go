@@ -18,9 +18,10 @@ func NewService(key types.NamespacedName, reaper *api.Reaper) *corev1.Service {
 	commonLabels := createServiceAndDeploymentLabels(reaper)
 
 	var serviceLabels, serviceAnnotations map[string]string
-	if meta := reaper.Spec.ResourceMeta; meta != nil && meta.ServiceTags != nil {
-		serviceLabels = utils.MergeMap(meta.ServiceTags.Labels, commonLabels)
-		serviceAnnotations = meta.ServiceTags.Annotations
+	if meta := reaper.Spec.Meta; meta != nil {
+		serviceLabels = utils.MergeMap(meta.Services.Labels, commonLabels)
+		serviceLabels = utils.MergeMap(meta.CommonLabels, serviceLabels)
+		serviceAnnotations = meta.Services.Annotations
 	}
 
 	service := &corev1.Service{

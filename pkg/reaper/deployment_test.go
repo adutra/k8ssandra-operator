@@ -35,31 +35,28 @@ func TestNewDeployment(t *testing.T) {
 			Name: "truststore-secret",
 		}},
 	}
-	reaper.Spec.ResourceMeta = &meta.ResourceMeta{
-		OrchestrationTags: &meta.MetaTags{
-			Labels:      map[string]string{"deployment-label": "label-value"},
-			Annotations: map[string]string{"deployment-annotation": "annotation-value"},
-		},
-		ChildTags: &meta.MetaTags{
+	reaper.Spec.Meta = &meta.ResourceMeta{
+		CommonLabels: map[string]string{"common-label": "common-label-value"},
+		Pods: meta.Tags{
 			Labels:      map[string]string{"pod-label": "pod-label-value"},
 			Annotations: map[string]string{"pod-annotation": "pod-annotation-value"},
 		},
-		ServiceTags: &meta.MetaTags{
+		Services: meta.Tags{
 			Labels:      map[string]string{"service-label": "service-label-value"},
 			Annotations: map[string]string{"service-annotation": "service-annotation-value"},
 		},
 	}
 
 	labels := createServiceAndDeploymentLabels(reaper)
-	deploymentLabels := utils.MergeMap(reaper.Spec.ResourceMeta.OrchestrationTags.Labels, labels)
-	podLabels := utils.MergeMap(reaper.Spec.ResourceMeta.ChildTags.Labels, labels)
+	deploymentLabels := utils.MergeMap(reaper.Spec.Meta.CommonLabels, labels)
+	podLabels := utils.MergeMap(reaper.Spec.Meta.Pods.Labels, labels)
+	podLabels = utils.MergeMap(reaper.Spec.Meta.CommonLabels, podLabels)
 
 	deployment := NewDeployment(reaper, newTestDatacenter(), pointer.String("keystore-password"), pointer.String("truststore-password"))
 
 	assert.Equal(t, reaper.Namespace, deployment.Namespace)
 	assert.Equal(t, reaper.Name, deployment.Name)
 	assert.Equal(t, deploymentLabels, deployment.Labels)
-	assert.Equal(t, reaper.Spec.ResourceMeta.OrchestrationTags.Annotations, deployment.Annotations)
 	assert.Equal(t, reaper.Spec.ServiceAccountName, deployment.Spec.Template.Spec.ServiceAccountName)
 
 	selector := deployment.Spec.Selector
@@ -78,7 +75,7 @@ func TestNewDeployment(t *testing.T) {
 	})
 
 	assert.Equal(t, podLabels, deployment.Spec.Template.Labels)
-	assert.Equal(t, reaper.Spec.ResourceMeta.ChildTags.Annotations, deployment.Spec.Template.Annotations)
+	assert.Equal(t, reaper.Spec.Meta.Pods.Annotations, deployment.Spec.Template.Annotations)
 
 	podSpec := deployment.Spec.Template.Spec
 	assert.Len(t, podSpec.Containers, 1)
@@ -466,16 +463,13 @@ func newTestReaper() *reaperapi.Reaper {
 			},
 			ReaperTemplate: reaperapi.ReaperTemplate{
 				Keyspace: "reaper_db",
-				ResourceMeta: &meta.ResourceMeta{
-					OrchestrationTags: &meta.MetaTags{
-						Labels:      map[string]string{"deployment-label": "label-value"},
-						Annotations: map[string]string{"deployment-annotation": "annotation-value"},
-					},
-					ChildTags: &meta.MetaTags{
+				Meta: &meta.ResourceMeta{
+					CommonLabels: map[string]string{"common-label": "common-label-value"},
+					Pods: meta.Tags{
 						Labels:      map[string]string{"pod-label": "pod-label-value"},
 						Annotations: map[string]string{"pod-annotation": "pod-annotation-value"},
 					},
-					ServiceTags: &meta.MetaTags{
+					Services: meta.Tags{
 						Labels:      map[string]string{"service-label": "service-label-value"},
 						Annotations: map[string]string{"service-annotation": "service-annotation-value"},
 					},

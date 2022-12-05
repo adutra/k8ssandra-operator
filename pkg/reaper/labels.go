@@ -41,16 +41,17 @@ func createServiceAndDeploymentLabels(r *reaperapi.Reaper) map[string]string {
 
 func createDeploymentLabels(r *reaperapi.Reaper) map[string]string {
 	labels := createServiceAndDeploymentLabels(r)
-	if meta := r.Spec.ResourceMeta; meta != nil && meta.OrchestrationTags != nil {
-		return utils.MergeMap(meta.OrchestrationTags.Labels, labels)
+	if meta := r.Spec.Meta; meta != nil {
+		labels = utils.MergeMap(meta.CommonLabels, labels)
 	}
 	return labels
 }
 
 func createPodLabels(r *reaperapi.Reaper) map[string]string {
 	labels := createServiceAndDeploymentLabels(r)
-	if meta := r.Spec.ResourceMeta; meta != nil && r.Spec.ResourceMeta.ChildTags != nil {
-		return utils.MergeMap(meta.ChildTags.Labels, labels)
+	if meta := r.Spec.Meta; meta != nil {
+		labels = utils.MergeMap(meta.Pods.Labels, labels)
+		labels = utils.MergeMap(meta.CommonLabels, labels)
 	}
 	return labels
 }

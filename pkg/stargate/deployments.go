@@ -99,22 +99,16 @@ func NewDeployments(stargate *api.Stargate, dc *cassdcapi.CassandraDatacenter) m
 		tolerations := template.Tolerations
 		affinity := computeAffinity(template, dc, &rack)
 
-		var deploymentAnnotations, podAnnotations map[string]string
-		if meta := template.ResourceMeta; meta != nil {
-			if meta.OrchestrationTags != nil {
-				deploymentAnnotations = meta.OrchestrationTags.Annotations
-			}
-			if meta.ChildTags != nil {
-				podAnnotations = meta.ChildTags.Annotations
-			}
+		var podAnnotations map[string]string
+		if meta := template.Meta; meta != nil {
+			podAnnotations = meta.Pods.Annotations
 		}
 
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        deploymentName,
-				Namespace:   stargate.Namespace,
-				Annotations: deploymentAnnotations,
-				Labels:      createDeploymentLabels(stargate),
+				Name:      deploymentName,
+				Namespace: stargate.Namespace,
+				Labels:    createDeploymentLabels(stargate),
 			},
 
 			Spec: appsv1.DeploymentSpec{
@@ -472,7 +466,7 @@ func configureAuth(stargate *api.Stargate, deployment *appsv1.Deployment) {
 }
 
 func createDeploymentLabels(stargate *api.Stargate) map[string]string {
-	commonLabels := map[string]string{
+	labels := map[string]string{
 		coreapi.NameLabel:      coreapi.NameLabelValue,
 		coreapi.PartOfLabel:    coreapi.PartOfLabelValue,
 		coreapi.ComponentLabel: coreapi.ComponentLabelValueStargate,
@@ -480,14 +474,14 @@ func createDeploymentLabels(stargate *api.Stargate) map[string]string {
 		api.StargateLabel:      stargate.Name,
 	}
 
-	if meta := stargate.Spec.ResourceMeta; meta != nil && meta.OrchestrationTags != nil {
-		return utils.MergeMap(meta.OrchestrationTags.Labels, commonLabels)
+	if meta := stargate.Spec.Meta; meta != nil {
+		labels = utils.MergeMap(meta.CommonLabels, labels)
 	}
-	return commonLabels
+	return labels
 }
 
 func createPodLabels(stargate *api.Stargate, deploymentName string) map[string]string {
-	commonLabels := map[string]string{
+	labels := map[string]string{
 		coreapi.NameLabel:           coreapi.NameLabelValue,
 		coreapi.PartOfLabel:         coreapi.PartOfLabelValue,
 		coreapi.ComponentLabel:      coreapi.ComponentLabelValueStargate,
@@ -496,11 +490,12 @@ func createPodLabels(stargate *api.Stargate, deploymentName string) map[string]s
 		api.StargateDeploymentLabel: deploymentName,
 	}
 
-	if meta := stargate.Spec.ResourceMeta; meta != nil && meta.ChildTags != nil {
-		return utils.MergeMap(meta.ChildTags.Labels, commonLabels)
+	if meta := stargate.Spec.Meta; meta != nil {
+		labels = utils.MergeMap(meta.Pods.Labels, labels)
+		labels = utils.MergeMap(meta.CommonLabels, labels)
 	}
 
-	return commonLabels
+	return labels
 }
 
 func GeneratedConfigMapName(clusterName, dcName string) string {

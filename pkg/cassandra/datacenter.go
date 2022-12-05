@@ -3,9 +3,7 @@ package cassandra
 import (
 	"errors"
 	"fmt"
-
 	"github.com/Masterminds/semver/v3"
-
 	"github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	"github.com/k8ssandra/cass-operator/pkg/reconciliation"
@@ -13,6 +11,7 @@ import (
 	"github.com/k8ssandra/k8ssandra-operator/pkg/encryption"
 	goalesceutils "github.com/k8ssandra/k8ssandra-operator/pkg/goalesce"
 	"github.com/k8ssandra/k8ssandra-operator/pkg/images"
+	"github.com/k8ssandra/k8ssandra-operator/pkg/meta"
 	"github.com/k8ssandra/k8ssandra-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -111,7 +110,6 @@ type DatacenterConfig struct {
 	ManagementApiAuth        *cassdcapi.ManagementApiAuthConfig
 	PerNodeConfigMapRef      corev1.LocalObjectReference
 	ExternalSecrets          bool
-	ServiceConfig            *cassdcapi.ServiceConfig
 
 	// InitialTokensByPodName is a list of initial tokens for the RF first pods in the cluster. It
 	// is only populated when num_tokens < 16 in the whole cluster. Used for generating default
@@ -191,11 +189,14 @@ func NewDatacenter(klusterKey types.NamespacedName, template *DatacenterConfig) 
 		dc.Spec.ManagementApiAuth = *template.ManagementApiAuth
 	}
 
-	if template.ServiceConfig != nil {
-		dc.Spec.AdditionalServiceConfig = *template.ServiceConfig
-	}
-
 	dc.Spec.Tolerations = template.Tolerations
+
+	if meta := template.Meta.CassandraDatacenterResourceMeta; meta != nil {
+
+		dc.Spec.AdditionalLabels = meta.CommonLabels
+		dc.Spec.AdditionalServiceConfig = meta.Services.ToCassAdditionalServiceConfig()
+
+	}
 
 	return dc, nil
 }
@@ -294,6 +295,9 @@ func Coalesce(clusterName string, clusterTemplate *api.CassandraClusterTemplate,
 	// FIXME if we are doing this, then we should remove the pointer
 	dcConfig.PodTemplateSpec = &corev1.PodTemplateSpec{}
 
+	mergedMeta := goalesceutils.MergeCRs(clusterTemplate.Meta, dcTemplate.Meta.CassandraDatacenterResourceMeta)
+	dcConfig.Meta.CassandraDatacenterResourceMeta = mergedMeta
+
 	mergedOptions := goalesceutils.MergeCRs(clusterTemplate.DatacenterOptions, dcTemplate.DatacenterOptions)
 
 	if len(mergedOptions.ServerVersion) > 0 {
@@ -315,9 +319,8 @@ func Coalesce(clusterName string, clusterTemplate *api.CassandraClusterTemplate,
 	dcConfig.ManagementApiAuth = mergedOptions.ManagementApiAuth
 	dcConfig.PodTemplateSpec.Spec.SecurityContext = mergedOptions.PodSecurityContext
 
-	if clusterTemplate.ResourceMeta != nil || dcTemplate.ResourceMeta != nil {
-		AddPodTemplateSpecMeta(dcConfig, clusterTemplate, dcTemplate)
-		AddServiceConfig(dcConfig, clusterTemplate, dcTemplate)
+	if dcConfig.Meta.CassandraDatacenterResourceMeta != nil {
+		AddPodTemplateSpecMeta(dcConfig, dcConfig.Meta.CassandraDatacenterResourceMeta)
 	}
 
 	if len(mergedOptions.Containers) > 0 {
@@ -408,64 +411,12 @@ func AddVolumesToPodTemplateSpec(dcConfig *DatacenterConfig, volume corev1.Volum
 	}
 }
 
-func AddPodTemplateSpecMeta(dcConfig *DatacenterConfig, clusterTemplate *api.CassandraClusterTemplate, dcTemplate *api.CassandraDatacenterTemplate) {
-	var commonLabels, podLabels map[string]string
-	var commonAnnotations, podAnnotations map[string]string
-
-	if clMeta := clusterTemplate.ResourceMeta; clMeta != nil && clMeta.ChildTags != nil {
-		commonLabels = clMeta.ChildTags.Labels
-		commonAnnotations = clMeta.ChildTags.Annotations
-	}
-
-	if dcMeta := dcTemplate.ResourceMeta; dcMeta != nil && dcMeta.ChildTags != nil {
-		podLabels = dcMeta.ChildTags.Labels
-		podAnnotations = dcMeta.ChildTags.Annotations
-	}
-
-	labels := utils.MergeMap(commonLabels, podLabels)
-	annotations := utils.MergeMap(commonAnnotations, podAnnotations)
+func AddPodTemplateSpecMeta(dcConfig *DatacenterConfig, meta *meta.CassandraDatacenterResourceMeta) {
+	// We don't need to overlay meta.CommonLabels as this will be done by cass-operator itself
 	dcConfig.PodTemplateSpec.ObjectMeta = metav1.ObjectMeta{
-		Annotations: annotations,
-		Labels:      labels,
+		Annotations: meta.Pods.Annotations,
+		Labels:      meta.Pods.Labels,
 	}
-}
-
-func AddServiceConfig(dcConfig *DatacenterConfig, clusterTemplate *api.CassandraClusterTemplate, dcTemplate *api.CassandraDatacenterTemplate) {
-	var commonLabels, commonAnnotations map[string]string
-	if clusterMeta := clusterTemplate.ResourceMeta; clusterMeta != nil && clusterMeta.ServiceTags != nil {
-		commonLabels = clusterMeta.ServiceTags.Labels
-		commonAnnotations = clusterMeta.ServiceTags.Annotations
-	}
-
-	var dcLabels, dcAnnotations map[string]string
-	if dcMeta := dcTemplate.ResourceMeta; dcMeta != nil && dcMeta.ServiceTags != nil {
-		dcLabels = dcMeta.ServiceTags.Labels
-		dcAnnotations = dcMeta.ServiceTags.Annotations
-	}
-
-	dcConfig.ServiceConfig = &cassdcapi.ServiceConfig{
-		DatacenterService: cassdcapi.ServiceConfigAdditions{
-			Labels:      utils.MergeMap(commonLabels, dcLabels),
-			Annotations: utils.MergeMap(commonAnnotations, dcAnnotations),
-		},
-		SeedService: cassdcapi.ServiceConfigAdditions{
-			Labels:      utils.MergeMap(commonLabels, dcLabels),
-			Annotations: utils.MergeMap(commonAnnotations, dcAnnotations),
-		},
-		AllPodsService: cassdcapi.ServiceConfigAdditions{
-			Labels:      utils.MergeMap(commonLabels, dcLabels),
-			Annotations: utils.MergeMap(commonAnnotations, dcAnnotations),
-		},
-		AdditionalSeedService: cassdcapi.ServiceConfigAdditions{
-			Labels:      utils.MergeMap(commonLabels, dcLabels),
-			Annotations: utils.MergeMap(commonAnnotations, dcAnnotations),
-		},
-		NodePortService: cassdcapi.ServiceConfigAdditions{
-			Labels:      utils.MergeMap(commonLabels, dcLabels),
-			Annotations: utils.MergeMap(commonAnnotations, dcAnnotations),
-		},
-	}
-
 }
 
 func FindContainer(dcPodTemplateSpec *corev1.PodTemplateSpec, containerName string) (int, bool) {

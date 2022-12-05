@@ -123,9 +123,9 @@ type StargateTemplate struct {
 	// +kubebuilder:default=internal
 	SecretsProvider string `json:"secretsProvider,omitempty"`
 
-	// labels and annotations for resources created by Stargate
+	// Labels and annotations for resources created by Stargate controller.
 	// +optional
-	ResourceMeta *meta.ResourceMeta `json:"resourceMeta,omitempty"`
+	Meta *meta.ResourceMeta `json:"metadata,omitempty"`
 }
 
 // UseExternalSecrets defines whether the user has specified if credentials and

@@ -1,0 +1,115 @@
+apiVersion: k8ssandra.io/v1alpha1
+kind: K8ssandraCluster
+metadata:
+  name: test
+spec:
+
+  reaper:
+    metadata:
+      labels: { }
+      annotations: { }
+      commonLabels: { }
+      services:
+        labels: { }
+        annotations: { }
+      pods:
+        labels: { }
+        annotations: { }
+    telemetry:
+      prometheus:
+        commonLabels: { }
+
+  stargate:
+    size: 1
+    metadata:
+      labels: { }
+      annotations: { }
+      commonLabels: { }
+      services:
+        labels: { }
+        annotations: { }
+      pods:
+        labels: { }
+        annotations: { }
+    telemetry:
+      prometheus:
+        commonLabels: { }
+
+  cassandra:
+    telemetry:
+      prometheus:
+        commonLabels: { }
+    metadata:
+      labels: { } # applies to CassandraDatacenter
+      annotations: { } # applies to CassandraDatacenter
+      commonLabels: { } # applied to ALL resources created by cass-operator
+      pods:
+        labels: { } # applies to Cassandra pods only
+        annotations: { } # applies to Cassandra pods only
+      services:
+        dcService:
+          labels: { }
+          annotations: { }
+        seedService:
+          labels: { }
+          annotations: { }
+        additionalSeedService:
+          labels: { }
+          annotations: { }
+        allPodsService:
+          labels: { }
+          annotations: { }
+        nodePortService:
+          labels: { }
+          annotations: { }
+
+
+    datacenters:
+      - metadata:
+          name: dc1
+          namespace: ns1
+          labels: { } # applies to CassandraDatacenter
+          annotations: { } # applies to CassandraDatacenter
+          # Stuff below is NEW, reuses types from CassandraDatacenter API
+          pods:
+            labels: { } # applies to Cassandra pods only
+            annotations: { } # applies to Cassandra pods only
+          commonLabels: { } # applied to ALL resources created by cass-operator
+          # Note: there is no equivalent additionalAnnotations in cass-operator
+          # Note: cannot set labels or annotations on the StatefulSet ONLY
+          services:
+            dcService:
+              labels: { }
+              annotations: { }
+            seedService:
+              labels: { }
+              annotations: { }
+            additionalSeedService:
+              labels: { }
+              annotations: { }
+            allPodsService:
+              labels: { }
+              annotations: { }
+            nodePortService:
+              labels: { }
+              annotations: { }
+        size: 3
+        telemetry:
+          prometheus:
+            commonLabels: { }
+
+        stargate:
+          size: 1
+          metadata:
+            labels: { }
+            annotations: { }
+            commonLabels: { }
+            services:
+              labels: { }
+              annotations: { }
+            pods:
+              labels: { }
+              annotations: { }
+          telemetry:
+            prometheus:
+              commonLabels: { }

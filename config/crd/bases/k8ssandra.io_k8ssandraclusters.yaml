@@ -7363,6 +7363,15 @@ spec:
                               additionalProperties:
                                 type: string
                               type: object
+                            commonLabels:
+                              additionalProperties:
+                                type: string
+                              description: 'CommonLabels allows to define additional
+                                labels that will be applied to ALL objects created
+                                by cass-operator as part of the reconciliation of
+                                a CassandraDatacenter resource. These include: StatefulSets,
+                                Pods, PVs, PVCs, all Services, and a few others.'
+                              type: object
                             labels:
                               additionalProperties:
                                 type: string
@@ -7371,6 +7380,93 @@ spec:
                               type: string
                             namespace:
                               type: string
+                            pods:
+                              description: Meta tags for Pod resources.
+                              properties:
+                                annotations:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                labels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                            services:
+                              description: Meta tags for specific CassandraDatacenter
+                                Services.
+                              properties:
+                                additionalSeedService:
+                                  description: Tags is a generic struct for objects
+                                    that have labels and annotations. It implements
+                                    annotations.Annotated and labels.Labeled.
+                                  properties:
+                                    annotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                allPodsService:
+                                  description: Tags is a generic struct for objects
+                                    that have labels and annotations. It implements
+                                    annotations.Annotated and labels.Labeled.
+                                  properties:
+                                    annotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                dcService:
+                                  description: Tags is a generic struct for objects
+                                    that have labels and annotations. It implements
+                                    annotations.Annotated and labels.Labeled.
+                                  properties:
+                                    annotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                nodePortService:
+                                  description: Tags is a generic struct for objects
+                                    that have labels and annotations. It implements
+                                    annotations.Annotated and labels.Labeled.
+                                  properties:
+                                    annotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                seedService:
+                                  description: Tags is a generic struct for objects
+                                    that have labels and annotations. It implements
+                                    annotations.Annotated and labels.Labeled.
+                                  properties:
+                                    annotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                              type: object
                           required:
                           - name
                           type: object
@@ -7623,48 +7719,6 @@ spec:
                             - name
                             type: object
                           type: array
-                        resourceMeta:
-                          description: datacenter specific annotations/labesl for
-                            resources created by the CassandraDatacenter
-                          properties:
-                            childTags:
-                              description: metaTags for the child components (Pods)
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                              type: object
-                            orchestrationTags:
-                              description: metaTags for the orchestrator component
-                                (e.g. Statefulet, Deployment)
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                              type: object
-                            serviceTags:
-                              description: metaTags for the Service component
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                              type: object
-                          type: object
                         resources:
                           description: Resources is the cpu and memory resources for
                             the cassandra container.
@@ -8987,6 +9041,53 @@ spec:
                                     value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                   format: int32
                                   type: integer
+                              type: object
+                            metadata:
+                              description: Labels and annotations for resources created
+                                by Stargate controller.
+                              properties:
+                                annotations:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                commonLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: CommonLabels allows to define additional
+                                    labels that will be applied to ALL objects created
+                                    by k8ssandra-operator as part of the reconciliation
+                                    of a Stargate or Reaper resource.
+                                  type: object
+                                labels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                pods:
+                                  description: Specific labels and annotations for
+                                    Pod resources.
+                                  properties:
+                                    annotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                services:
+                                  description: Specific labels and annotations for
+                                    Service resources.
+                                  properties:
+                                    annotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    labels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
                               type: object
                             nodeSelector:
                               additionalProperties:
@@ -10426,6 +10527,54 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  metadata:
+                                    description: Labels and annotations for resources
+                                      created by Stargate controller.
+                                    properties:
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
+                                      commonLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: CommonLabels allows to define
+                                          additional labels that will be applied to
+                                          ALL objects created by k8ssandra-operator
+                                          as part of the reconciliation of a Stargate
+                                          or Reaper resource.
+                                        type: object
+                                      labels:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
+                                      pods:
+                                        description: Specific labels and annotations
+                                          for Pod resources.
+                                        properties:
+                                          annotations:
+                                            additionalProperties:
+                                              type: string
+                                            type: object
+                                          labels:
+                                            additionalProperties:
+                                              type: string
+                                            type: object
+                                        type: object
+                                      services:
+                                        description: Specific labels and annotations
+                                          for Service resources.
+                                        properties:
+                                          annotations:
+                                            additionalProperties:
+                                              type: string
+                                            type: object
+                                          labels:
+                                            additionalProperties:
+                                              type: string
+                                            type: object
+                                        type: object
+                                    type: object
                                   name:
                                     description: Name is the rack name. It must correspond
                                       to an existing rack name in the CassandraDatacenter
@@ -10609,49 +10758,6 @@ spec:
                                           Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                         format: int32
                                         type: integer
-                                    type: object
-                                  resourceMeta:
-                                    description: labels and annotations for resources
-                                      created by Stargate
-                                    properties:
-                                      childTags:
-                                        description: metaTags for the child components
-                                          (Pods)
-                                        properties:
-                                          annotations:
-                                            additionalProperties:
-                                              type: string
-                                            type: object
-                                          labels:
-                                            additionalProperties:
-                                              type: string
-                                            type: object
-                                        type: object
-                                      orchestrationTags:
-                                        description: metaTags for the orchestrator
-                                          component (e.g. Statefulet, Deployment)
-                                        properties:
-                                          annotations:
-                                            additionalProperties:
-                                              type: string
-                                            type: object
-                                          labels:
-                                            additionalProperties:
-                                              type: string
-                                            type: object
-                                        type: object
-                                      serviceTags:
-                                        description: metaTags for the Service component
-                                        properties:
-                                          annotations:
-                                            additionalProperties:
-                                              type: string
-                                            type: object
-                                          labels:
-                                            additionalProperties:
-                                              type: string
-                                            type: object
-                                        type: object
                                     type: object
                                   resources:
                                     description: Resources is the Kubernetes resource
@@ -10961,48 +11067,6 @@ spec:
                                     value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                   format: int32
                                   type: integer
-                              type: object
-                            resourceMeta:
-                              description: labels and annotations for resources created
-                                by Stargate
-                              properties:
-                                childTags:
-                                  description: metaTags for the child components (Pods)
-                                  properties:
-                                    annotations:
-                                      additionalProperties:
-                                        type: string
-                                      type: object
-                                    labels:
-                                      additionalProperties:
-                                        type: string
-                                      type: object
-                                  type: object
-                                orchestrationTags:
-                                  description: metaTags for the orchestrator component
-                                    (e.g. Statefulet, Deployment)
-                                  properties:
-                                    annotations:
-                                      additionalProperties:
-                                        type: string
-                                      type: object
-                                    labels:
-                                      additionalProperties:
-                                        type: string
-                                      type: object
-                                  type: object
-                                serviceTags:
-                                  description: metaTags for the Service component
-                                  properties:
-                                    annotations:
-                                      additionalProperties:
-                                        type: string
-                                      type: object
-                                    labels:
-                                      additionalProperties:
-                                        type: string
-                                      type: object
-                                  type: object
                               type: object
                             resources:
                               description: Resources is the Kubernetes resource requests
@@ -14866,6 +14930,114 @@ spec:
                         - serverSecretName
                         type: object
                     type: object
+                  metadata:
+                    description: cluster specific annotations/labesl for resources
+                      created by the CassandraDatacenter
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      commonLabels:
+                        additionalProperties:
+                          type: string
+                        description: 'CommonLabels allows to define additional labels
+                          that will be applied to ALL objects created by cass-operator
+                          as part of the reconciliation of a CassandraDatacenter resource.
+                          These include: StatefulSets, Pods, PVs, PVCs, all Services,
+                          and a few others.'
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      pods:
+                        description: Meta tags for Pod resources.
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                        type: object
+                      services:
+                        description: Meta tags for specific CassandraDatacenter Services.
+                        properties:
+                          additionalSeedService:
+                            description: Tags is a generic struct for objects that
+                              have labels and annotations. It implements annotations.Annotated
+                              and labels.Labeled.
+                            properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                          allPodsService:
+                            description: Tags is a generic struct for objects that
+                              have labels and annotations. It implements annotations.Annotated
+                              and labels.Labeled.
+                            properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                          dcService:
+                            description: Tags is a generic struct for objects that
+                              have labels and annotations. It implements annotations.Annotated
+                              and labels.Labeled.
+                            properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                          nodePortService:
+                            description: Tags is a generic struct for objects that
+                              have labels and annotations. It implements annotations.Annotated
+                              and labels.Labeled.
+                            properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                          seedService:
+                            description: Tags is a generic struct for objects that
+                              have labels and annotations. It implements annotations.Annotated
+                              and labels.Labeled.
+                            properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                        type: object
+                    type: object
                   mgmtAPIHeap:
                     anyOf:
                     - type: integer
@@ -15087,48 +15259,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  resourceMeta:
-                    description: cluster specific annotations/labesl for resources
-                      created by the CassandraDatacenter
-                    properties:
-                      childTags:
-                        description: metaTags for the child components (Pods)
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
-                      orchestrationTags:
-                        description: metaTags for the orchestrator component (e.g.
-                          Statefulet, Deployment)
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
-                      serviceTags:
-                        description: metaTags for the Service component
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
-                    type: object
                   resources:
                     description: Resources is the cpu and memory resources for the
                       cassandra container.
@@ -17577,6 +17707,50 @@ spec:
                         format: int32
                         type: integer
                     type: object
+                  metadata:
+                    description: Labels and annotations for resources created by Reaper
+                      controller.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      commonLabels:
+                        additionalProperties:
+                          type: string
+                        description: CommonLabels allows to define additional labels
+                          that will be applied to ALL objects created by k8ssandra-operator
+                          as part of the reconciliation of a Stargate or Reaper resource.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      pods:
+                        description: Specific labels and annotations for Pod resources.
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                        type: object
+                      services:
+                        description: Specific labels and annotations for Service resources.
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                        type: object
+                    type: object
                   podSecurityContext:
                     description: PodSecurityContext contains a pod-level SecurityContext
                       to apply to Reaper pods.
@@ -17896,47 +18070,6 @@ spec:
                           https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                         format: int32
                         type: integer
-                    type: object
-                  resourceMeta:
-                    description: labels and annotations for resources created by Reaper
-                    properties:
-                      childTags:
-                        description: metaTags for the child components (Pods)
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
-                      orchestrationTags:
-                        description: metaTags for the orchestrator component (e.g.
-                          Statefulet, Deployment)
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
-                      serviceTags:
-                        description: metaTags for the Service component
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
                     type: object
                   resources:
                     description: Main Container resources.
@@ -19380,6 +19513,50 @@ spec:
                         format: int32
                         type: integer
                     type: object
+                  metadata:
+                    description: Labels and annotations for resources created by Stargate
+                      controller.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      commonLabels:
+                        additionalProperties:
+                          type: string
+                        description: CommonLabels allows to define additional labels
+                          that will be applied to ALL objects created by k8ssandra-operator
+                          as part of the reconciliation of a Stargate or Reaper resource.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      pods:
+                        description: Specific labels and annotations for Pod resources.
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                        type: object
+                      services:
+                        description: Specific labels and annotations for Service resources.
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                        type: object
+                    type: object
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -19537,47 +19714,6 @@ spec:
                           https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                         format: int32
                         type: integer
-                    type: object
-                  resourceMeta:
-                    description: labels and annotations for resources created by Stargate
-                    properties:
-                      childTags:
-                        description: metaTags for the child components (Pods)
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
-                      orchestrationTags:
-                        description: metaTags for the orchestrator component (e.g.
-                          Statefulet, Deployment)
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
-                      serviceTags:
-                        description: metaTags for the Service component
-                        properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                        type: object
                     type: object
                   resources:
                     description: Resources is the Kubernetes resource requests and

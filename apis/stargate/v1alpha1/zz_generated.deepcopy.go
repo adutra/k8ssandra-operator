@@ -334,8 +334,8 @@ func (in *StargateTemplate) DeepCopyInto(out *StargateTemplate) {
 		*out = new(AuthOptions)
 		**out = **in
 	}
-	if in.ResourceMeta != nil {
-		in, out := &in.ResourceMeta, &out.ResourceMeta
+	if in.Meta != nil {
+		in, out := &in.Meta, &out.Meta
 		*out = new(meta.ResourceMeta)
 		(*in).DeepCopyInto(*out)
 	}

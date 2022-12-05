@@ -182,14 +182,16 @@ func NewDeployment(reaper *api.Reaper, dc *cassdcapi.CassandraDatacenter, keysto
 	initContainerResources := computeInitContainerResources(reaper.Spec.InitContainerResources)
 	mainContainerResources := computeMainContainerResources(reaper.Spec.Resources)
 
-	deploymentAnnotations, podAnnotations := getAnnotations(reaper)
+	var podAnnotations map[string]string
+	if meta := reaper.Spec.Meta; meta != nil {
+		podAnnotations = meta.Pods.Annotations
+	}
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   reaper.Namespace,
-			Name:        reaper.Name,
-			Labels:      createDeploymentLabels(reaper),
-			Annotations: deploymentAnnotations,
+			Namespace: reaper.Namespace,
+			Name:      reaper.Name,
+			Labels:    createDeploymentLabels(reaper),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &selector,
@@ -352,18 +354,4 @@ func getAdaptiveIncremental(reaper *api.Reaper, dc *cassdcapi.CassandraDatacente
 		}
 	}
 	return
-}
-
-func getAnnotations(reaper *api.Reaper) (map[string]string, map[string]string) {
-	var deploymentAnnotations, podAnnotations map[string]string
-	if meta := reaper.Spec.ResourceMeta; meta != nil {
-		if meta.OrchestrationTags != nil {
-			deploymentAnnotations = meta.OrchestrationTags.Annotations
-		}
-		if meta.ChildTags != nil {
-			podAnnotations = meta.ChildTags.Annotations
-		}
-	}
-
-	return deploymentAnnotations, podAnnotations
 }

@@ -265,7 +265,7 @@ type CassandraClusterTemplate struct {
 
 	// cluster specific annotations/labesl for resources created by the CassandraDatacenter
 	// +optional
-	ResourceMeta *meta.ResourceMeta `json:"resourceMeta,omitempty"`
+	Meta *meta.CassandraDatacenterResourceMeta `json:"metadata,omitempty"`
 }
 
 type CassandraDatacenterTemplate struct {
@@ -302,10 +302,6 @@ type CassandraDatacenterTemplate struct {
 	// the pod are merged into their respective configuration files.
 	// +optional
 	PerNodeConfigMapRef corev1.LocalObjectReference `json:"perNodeConfigMapRef,omitempty"`
-
-	// datacenter specific annotations/labesl for resources created by the CassandraDatacenter
-	// +optional
-	ResourceMeta *meta.ResourceMeta `json:"resourceMeta,omitempty"`
 }
 
 // DatacenterOptions are configuration settings that are can be set at the Cluster level and overridden for a single DC
@@ -458,27 +454,7 @@ type EmbeddedObjectMeta struct {
 
 	Name string `json:"name"`
 
-	// +optional
-	Labels map[string]string `json:"labels,omitempty"`
-
-	// +optional
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-func (in *EmbeddedObjectMeta) GetAnnotations() map[string]string {
-	return in.Annotations
-}
-
-func (in *EmbeddedObjectMeta) SetAnnotations(annotations map[string]string) {
-	in.Annotations = annotations
-}
-
-func (in *EmbeddedObjectMeta) GetLabels() map[string]string {
-	return in.Labels
-}
-
-func (in *EmbeddedObjectMeta) SetLabels(labels map[string]string) {
-	in.Labels = labels
+	*meta.CassandraDatacenterResourceMeta `json:",inline"`
 }
 
 func (s *K8ssandraClusterStatus) GetConditionStatus(conditionType K8ssandraClusterConditionType) corev1.ConditionStatus {

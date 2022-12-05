@@ -58,8 +58,10 @@ func createServiceLabels(stargate *api.Stargate) map[string]string {
 		api.StargateLabel:      stargate.Name,
 	}
 
-	if meta := stargate.Spec.ResourceMeta; meta != nil && meta.ServiceTags != nil {
-		return utils.MergeMap(meta.ServiceTags.Labels, labels)
+	if meta := stargate.Spec.Meta; meta != nil {
+		labels = utils.MergeMap(meta.Services.Labels, labels)
+		labels = utils.MergeMap(meta.CommonLabels, labels)
 	}
+
 	return labels
 }

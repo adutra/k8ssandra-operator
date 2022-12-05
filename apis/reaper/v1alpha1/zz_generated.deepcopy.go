@@ -282,8 +282,8 @@ func (in *ReaperTemplate) DeepCopyInto(out *ReaperTemplate) {
 		*out = new(telemetryv1alpha1.TelemetrySpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ResourceMeta != nil {
-		in, out := &in.ResourceMeta, &out.ResourceMeta
+	if in.Meta != nil {
+		in, out := &in.Meta, &out.Meta
 		*out = new(meta.ResourceMeta)
 		(*in).DeepCopyInto(*out)
 	}
